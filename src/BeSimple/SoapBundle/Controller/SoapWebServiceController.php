@@ -12,17 +12,15 @@
 
 namespace BeSimple\SoapBundle\Controller;
 
-use BeSimple\SoapBundle\Handler\ExceptionHandler;
 use BeSimple\SoapBundle\Soap\SoapRequest;
 use BeSimple\SoapBundle\Soap\SoapResponse;
 use BeSimple\SoapBundle\WebServiceContext;
-use BeSimple\SoapServer\SoapServerBuilder;
+use Symfony\Component\Debug\Exception\FlattenException;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 use Symfony\Component\DependencyInjection\ContainerAwareTrait;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Debug\Exception\FlattenException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\Log\DebugLoggerInterface;
@@ -110,60 +108,6 @@ class SoapWebServiceController implements ContainerAwareInterface
         }
 
         return $response;
-    }
-
-    /**
-     * Converts an Exception to a SoapFault Response.
-     *
-     * @param Request              $request   The request
-     * @param FlattenException     $exception A FlattenException instance
-     * @param DebugLoggerInterface $logger    A DebugLoggerInterface instance
-     *
-     * @return Response
-     *
-     * @throws \LogicException When the request query parameter "_besimple_soap_webservice" does not exist
-     */
-    public function exceptionAction(Request $request, FlattenException $exception, DebugLoggerInterface $logger = null)
-    {
-        if (!$webservice = $request->query->get('_besimple_soap_webservice')) {
-            throw new \LogicException(sprintf('The parameter "%s" is required in Request::$query parameter bag to generate the SoapFault.', '_besimple_soap_webservice'), null, $e);
-        }
-
-        $view = '@Twig/Exception/'.($this->container->get('kernel')->isDebug() ? 'exception' : 'error').'.txt.twig';
-        $code = $exception->getStatusCode();
-        $details = $this->container->get('twig')->render($view, array(
-            'status_code' => $code,
-            'status_text' => isset(Response::$statusTexts[$code]) ? Response::$statusTexts[$code] : '',
-            'exception'   => $exception,
-            'logger'      => $logger,
-        ));
-
-        $handler = new ExceptionHandler($exception, $details);
-        if ($soapFault = $request->query->get('_besimple_soap_fault')) {
-            $handler->setSoapFault($soapFault);
-
-            // Remove parameter from query because cannot be Serialized in Logger
-            $request->query->remove('_besimple_soap_fault');
-        }
-
-        $server = SoapServerBuilder::createWithDefaults()
-            ->withWsdl(__DIR__.'/../Handler/wsdl/exception.wsdl')
-            ->withWsdlCacheNone()
-            ->withHandler($handler)
-            ->build()
-        ;
-
-        ob_start();
-        $server->handle(
-            '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://besim.pl/soap/exception/1.0/">'.
-               '<soapenv:Header/>'.
-               '<soapenv:Body>'.
-                  '<ns:exception />'.
-               '</soapenv:Body>'.
-            '</soapenv:Envelope>'
-        );
-
-        return new Response(ob_get_clean());
     }
 
     /**
