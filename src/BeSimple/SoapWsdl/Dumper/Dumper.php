@@ -224,6 +224,7 @@ class Dumper
         $this->domSchema->setAttribute('targetNamespace', $this->definition->getNamespace());
         $this->domSchema->setAttribute('elementFormDefault', 'unqualified');
         $this->domSchema->setAttribute(static::XML_NS.':'.static::XSD_NS, static::XSD_NS_URI);
+        $this->domSchema->setAttribute(static::XML_NS.':'.static::TYPES_NS, $this->definition->getNamespace());
         $types->appendChild($this->domSchema);
 
         foreach ($this->definition->getTypeRepository()->getComplexTypes() as $type) {
@@ -270,8 +271,12 @@ class Dumper
 //                    $isArray = true;
 //                    $name = lcfirst(substr($name, 7));
 //                }
-
-                $element->setAttribute('type', static::TYPES_NS.':'.$name);
+                if ($childType->getXmlType() == 'attachment'){
+                    $element->setAttribute('ref', static::TYPES_NS.':'.$name);
+                    $element->removeAttribute('name');
+                }else{
+                    $element->setAttribute('type', static::TYPES_NS.':'.$name);
+                }
             } else {
                 $element->setAttribute('type', $childType);
             }
